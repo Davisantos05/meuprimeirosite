@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz eFootball ⚽</title>
+<style>
+:root{
+  --bg:#0b0c1e; --card:#111827; --accent:#f5ea00; --accent-2:#0029ff;
+  --text:#fff; --muted:#9ca3af; --danger:#f87171;
+}
+*{box-sizing:border-box;}
+html,body{height:100%; margin:0; font-family:sans-serif; color:var(--text);}
+body{display:flex; align-items:center; justify-content:center; background:var(--bg); padding:16px;}
+.app{width:min(980px,100%); display:grid; grid-template-columns:1.2fr 1fr; gap:16px;}
+@media(max-width:860px){.app{grid-template-columns:1fr;}}
+.panel{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)); border:1px solid rgba(255,255,255,0.1); border-radius:16px; padding:18px; backdrop-filter: blur(6px); box-shadow:0 10px 30px rgba(0,0,0,0.25);}
+.title{font-weight:700; margin:0 0 8px 0;}
+.subtitle{margin:0 0 16px 0; color:var(--muted); font-size:14px;}
+.question{font-size:20px; font-weight:700; margin:6px 0 14px 0;}
+.answers{display:grid; gap:10px;}
+.btn{width:100%; text-align:left; border:1px solid rgba(255,255,255,0.08); padding:14px; border-radius:12px; background:#0b1220; color:var(--text); cursor:pointer; transition:all .2s ease;}
+.btn:hover{background:rgba(255,255,255,0.05);}
+.btn.correct{border:2px solid var(--accent-2);}
+.btn.wrong{border:2px solid var(--danger);}
+.actions{display:flex; gap:10px; margin-top:12px;}
+.pill{padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.12); cursor:pointer; background:#111827; color:#fff;}
+.pill:hover{background:rgba(255,255,255,0.05);}
+.pill[disabled]{opacity:.6; cursor:not-allowed;}
+.hud{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+.chip{padding:6px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.16); background:#0a1220;}
+.progress{width:100%; height:10px; background:#0a0f1c; border-radius:999px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);}
+.bar{height:100%; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent-2)); transition:width .4s ease;}
+.tank-wrap{position:relative; display:flex; align-items:center; justify-content:center;}
+.tank{position:relative; width:100%; max-width:300px; height:400px; border-radius:18px; border:2px solid rgba(255,255,255,0.18); overflow:hidden; background:rgba(255,255,255,0.02);}
+.water{position:absolute; bottom:0; left:0; width:100%; height:0%; background:linear-gradient(to top, var(--accent-2), var(--accent)); transition:height .5s;}
+.wave{position:absolute; left:-50%; right:-50%; height:24px; top:-22px; background:radial-gradient(100% 70% at 50% 100%, rgba(255,255,255,0.75), transparent 60%); opacity:.45; filter:blur(1px); animation:wobble 3.5s infinite;}
+@keyframes wobble{0%,100%{transform:translateX(0);}50%{transform:translateX(12px);}}
+.toast{position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#0b1220; border:1px solid rgba(255,255,255,0.12); padding:10px 12px; border-radius:10px; opacity:0; transition:opacity .25s;}
+.toast.show{opacity:1;}
+.confetti{position:fixed; inset:0; pointer-events:none; overflow:hidden;}
+.piece{position:absolute; width:8px; height:14px; top:-20px; opacity:.9; animation:fall linear forwards;}
+@keyframes fall{to{transform:translateY(110vh) rotate(540deg); opacity:1;}}
+.end-buttons{display:flex; gap:10px; margin-top:16px; justify-content:center;}
+</style>
+</head>
+<body>
+<main class="app">
+<section class="panel">
+<h1 class="title">⚽ Quiz eFootball</h1>
+<p class="subtitle">Teste seus conhecimentos e encha o tanque!</p>
+<div class="hud">
+  <span class="chip" id="qIndex">Pergunta 1/10</span>
+  <span class="chip" id="score">Pontuação: 0</span>
+  <span class="chip" id="streak">Streak: 0🔥</span>
+  <span class="chip" id="best">Recorde: 0</span>
+</div>
+<div class="progress"><div class="bar" id="bar"></div></div>
+<div id="questionBox" class="question">Carregando…</div>
+<div id="answers" class="answers"></div>
+<div class="actions">
+  <button id="skip" class="pill">Pular</button>
+  <button id="restart" class="pill">Reiniciar</button>
+</div>
+<div class="meta"><span>Dica: teclas 1–4 respondem rápido</span><span id="feedback"></span></div>
+</section>
+<section class="panel tank-wrap">
+<div class="tank"><div class="water" id="water"><div class="wave"></div></div></div>
+</section>
+</main>
+
+<div id="toast" class="toast"></div>
+<div id="confetti" class="confetti"></div>
+
+<script>
+const QUESTIONS = [
+{q:"Qual jogador é mais usado no eFootball?",options:["Cristiano Ronaldo","Lionel Messi","Neymar Jr","Mbappé"],correct:1,explain:"Messi é o mais popular."},
+{q:"Qual modo é mais jogado?",options:["Matchday","MyClub","Kick-Off","Training"],correct:1,explain:"MyClub é o mais popular online."},
+{q:"Qual time é considerado mais forte?",options:["Barcelona","Real Madrid","Man City","Juventus"],correct:0,explain:"Barcelona continua forte."},
+{q:"Qual habilidade é mais importante?",options:["Velocidade","Defesa","Drible","Chute"],correct:2,explain:"Drible é essencial."},
+{q:"Qual treinador é mais presente?",options:["Pep Guardiola","Klopp","Simeone","Zidane"],correct:0,explain:"Guardiola é muito utilizado."},
+{q:"Qual país tem mais times?",options:["Inglaterra","Espanha","Alemanha","Itália"],correct:0,explain:"Premier League tem mais times."},
+{q:"Recurso para melhorar jogadores?",options:["Treinamento","Cartas especiais","Moedas","Todos"],correct:3,explain:"Todos ajudam a evoluir jogadores."},
+{q:"Posição estratégica em partidas rápidas?",options:["Goleiro","Zagueiro","Meio-campo","Atacante"],correct:3,explain:"Atacante é crucial."},
+{q:"Duração padrão de partida?",options:["5","10","15","20"],correct:2,explain:"15 minutos é padrão."},
+{q:"Item para personalizar time?",options:["Uniformes","Chuteiras","Bolas","Todos"],correct:3,explain:"Todos ajudam a personalizar."},
+];
+
+const POINTS=100, WATERSTEP=10, CONFETTI=80;
+let order=[...Array(QUESTIONS.length).keys()];
+shuffle(order);
+let idx=0, score=0, streak=0, water=0, best=Number(localStorage.getItem("bestScore")||0), locked=false;
+
+const els={
+qIndex:document.getElementById("qIndex"),
+score:document.getElementById("score"),
+streak:document.getElementById("streak"),
+best:document.getElementById("best"),
+bar:document.getElementById("bar"),
+box:document.getElementById("questionBox"),
+ans:document.getElementById("answers"),
+water:document.getElementById("water"),
+skip:document.getElementById("skip"),
+restart:document.getElementById("restart"),
+feedback:document.getElementById("feedback"),
+toast:document.getElementById("toast"),
+confetti:document.getElementById("confetti"),
+};
+
+function updateHud(){els.score.textContent=`Pontuação: ${score}`; els.streak.textContent=`Streak: ${streak}🔥`; els.best.textContent=`Recorde: ${best}`;}
+function setWater(p){els.water.style.height=p+"%";}
+function toast(msg){els.toast.textContent=msg; els.toast.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>els.toast.classList.remove("show"),1500);}
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a;}
+
+function renderQuestion(){
+  if(idx>=order.length){endGame(); return;}
+  const q=QUESTIONS[order[idx]];
+  els.qIndex.textContent=`Pergunta ${idx+1}/${QUESTIONS.length}`;
+  els.box.textContent=q.q;
+  els.ans.innerHTML="";
+  q.options.forEach((opt,i)=>{
+    const b=document.createElement("button");
+    b.className="btn"; b.innerHTML=`${i+1}. ${opt}`;
+    b.addEventListener("click",()=>answer(i));
+    els.ans.appendChild(b);
+  });
+  window.onkeydown=(e)=>{const n=Number(e.key); if(n>=1 && n<=4) els.ans.querySelectorAll(".btn")[n-1].click();}
+  els.bar.style.width=Math.min(100,(idx/QUESTIONS.length)*100)+"%";
+}
+
+function answer(i){
+  if(locked) return; locked=true;
+  const q=QUESTIONS[order[idx]];
+  const buttons=[...els.ans.querySelectorAll(".btn")];
+  buttons.forEach((b,bi)=>{if(bi===q.correct)b.classList.add("correct"); if(bi===i&&i!==q.correct)b.classList.add("wrong"); b.disabled=true;});
+  if(i===q.correct){score+=POINTS; streak++; water=Math.min(100,water+WATERSTEP); setWater(water); toast("✅ Acertou!"); els.feedback.textContent=q.explain; confettiBurst(10);}
+  else{streak=0; toast("❌ Errado"); els.feedback.textContent=q.explain;}
+  updateHud();
+  setTimeout(()=>{idx++; locked=false; renderQuestion(); els.feedback.textContent="";},800);
+}
+
+function endGame(){
+  locked=true;
+  if(score>best){best=score; localStorage.setItem("bestScore",best); toast("🏆 Novo recorde!");}
+  else toast("🎉 Quiz Finalizado!");
+  updateHud();
+  setWater(100);
+  bigConfetti();
+  els.box.textContent=`Fim do Quiz! Pontos: ${score}, Streak: ${streak}`;
+  els.ans.innerHTML="";
+  const wave = document.createElement("div"); wave.className="wave"; wave.style.height="50px"; wave.style.top="-40px"; els.water.appendChild(wave);
+
+  // Botões de ação final
+  const divEnd = document.createElement("div"); divEnd.className="end-buttons";
+  const btnRestart = document.createElement("button"); btnRestart.className="pill"; btnRestart.textContent="Reiniciar Quiz"; btnRestart.onclick=()=>{score=0; streak=0; water=0; setWater(0); updateHud(); idx=0; shuffle(order); locked=false; renderQuestion(); divEnd.remove();}
+  const btnIndex = document.createElement("button"); btnIndex.className="pill"; btnIndex.textContent="Voltar ao Início"; btnIndex.onclick=()=>{window.location.href="index.html";}
+  divEnd.appendChild(btnRestart); divEnd.appendChild(btnIndex); els.ans.appendChild(divEnd);
+}
+
+function bigConfetti(){for(let i=0;i<CONFETTI;i++) spawnPiece(true);}
+function confettiBurst(n=8){for(let i=0;i<n;i++) spawnPiece(false);}
+function spawnPiece(full){
+  const p=document.createElement("div"); p.className="piece";
+  const vw=window.innerWidth; p.style.left=Math.random()*vw+"px";
+  p.style.background=Math.random()>.5?"linear-gradient(180deg,#f5ea00,#ffd700)":"linear-gradient(180deg,#0029ff,#1e40ff)";
+  p.style.animationDuration=(full?1.8+Math.random()*1.2:1.2+Math.random()*0.8)+"s";
+  els.confetti.appendChild(p); setTimeout(()=>p.remove(),2200);
+}
+
+els.skip.addEventListener("click",()=>{if(locked)return; toast("Pulou."); idx++; renderQuestion();});
+els.restart.addEventListener("click",()=>{score=0; streak=0; water=0; setWater(0); updateHud(); idx=0; shuffle(order); locked=false; renderQuestion(); toast("Jogo reiniciado.");});
+
+updateHud(); renderQuestion();
+</script>
+</body>
+</html>
+  
